@@ -1,41 +1,64 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <div class="container">
         <a class="navbar-brand" href="">PurpleHatProject</a>
+        <button class="navbar-toggler" type="button" @onclick="ToggleNav" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="@NavMenuCssClass">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="counter">Counter</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="db-health">SQLite Health</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="dynamodb-health">DynamoDB Health</NavLink>
+                </li>
+            </ul>
+            <button class="theme-toggle" @onclick="ToggleTheme" aria-label="Toggle theme">
+                @(_isDark ? "\u2600\uFE0F" : "\uD83C\uDF19")
+            </button>
+        </div>
     </div>
-</div>
+</nav>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler"/>
+@code {
+    private bool _collapseNav = true;
+    private bool _isDark;
+    private IJSObjectReference? _themeModule;
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    private string NavMenuCssClass => _collapseNav ? "collapse navbar-collapse" : "navbar-collapse";
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _themeModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/theme.js");
+            var theme = await _themeModule.InvokeAsync<string>("getTheme");
+            _isDark = theme == "dark";
+            StateHasChanged();
+        }
+    }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+    private void ToggleNav()
+    {
+        _collapseNav = !_collapseNav;
+    }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="db-health">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> SQLite DB Health
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="dynamodb-health">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> DynamoDB Health
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    private async Task ToggleTheme()
+    {
+        _isDark = !_isDark;
+        if (_themeModule is not null)
+        {
+            await _themeModule.InvokeVoidAsync("setTheme", _isDark ? "dark" : "light");
+        }
+    }
+}
