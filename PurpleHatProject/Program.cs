@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using PurpleHatProject.Components;
 using PurpleHatProject.Data;
@@ -7,6 +8,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var dynamoDbServiceUrl = builder.Configuration["DynamoDb:ServiceUrl"];
+if (!string.IsNullOrEmpty(dynamoDbServiceUrl))
+{
+    builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient(
+        new AmazonDynamoDBConfig { ServiceURL = dynamoDbServiceUrl }));
+}
+else
+{
+    builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient());
+}
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
