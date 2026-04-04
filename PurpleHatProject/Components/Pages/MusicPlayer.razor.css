@@ -1,0 +1,92 @@
+.track-list {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.track-table {
+    margin-bottom: 0;
+}
+
+.track-table thead th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom-width: 1px;
+    padding: 0.75rem 1rem;
+}
+
+.track-row {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.track-row:hover td {
+    background-color: var(--table-stripe) !important;
+}
+
+.track-row.active td {
+    color: var(--accent);
+}
+
+.track-row.active .track-title {
+    font-weight: 600;
+}
+
+.track-table td {
+    padding: 0.625rem 1rem;
+    vertical-align: middle;
+}
+
+.col-num {
+    width: 3rem;
+    text-align: center;
+}
+
+.col-duration {
+    width: 5rem;
+    text-align: right;
+}
+
+/* EQ bars animation */
+.eq-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+}
+
+.eq-bar {
+    display: inline-block;
+    width: 3px;
+    background-color: var(--accent);
+    border-radius: 1px;
+    animation: eq-bounce 0.8s ease-in-out infinite;
+}
+
+.eq-bar:nth-child(1) {
+    height: 60%;
+    animation-delay: 0s;
+}
+
+.eq-bar:nth-child(2) {
+    height: 100%;
+    animation-delay: 0.2s;
+}
+
+.eq-bar:nth-child(3) {
+    height: 40%;
+    animation-delay: 0.4s;
+}
+
+@keyframes eq-bounce {
+    0%, 100% {
+        transform: scaleY(0.3);
+    }
+    50% {
+        transform: scaleY(1);
+    }
+}
