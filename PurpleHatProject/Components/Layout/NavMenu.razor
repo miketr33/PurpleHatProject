@@ -1,5 +1,12 @@
 @using Microsoft.JSInterop
+@using Microsoft.EntityFrameworkCore
+@using PurpleHatProject.Data
+@using PurpleHatProject.Models
+@using PurpleHatProject.Services
 @inject IJSRuntime JS
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IUserSessionService UserSession
+@implements IDisposable
 
 <nav class="navbar navbar-expand-md navbar-dark bg-dark">
     <div class="container">
@@ -26,6 +33,34 @@
                     <NavLink class="nav-link" href="dynamodb-health">DynamoDB Health</NavLink>
                 </li>
             </ul>
+            <div class="user-login-area">
+                @if (UserSession.CurrentUser is not null)
+                {
+                    <div class="user-avatar" style="background-color: @GetAvatarColour(UserSession.CurrentUser.Name)">
+                        @UserSession.CurrentUser.Name[0]
+                    </div>
+                    <span class="navbar-text me-2">@UserSession.CurrentUser.Name</span>
+                    <button class="btn btn-outline-light btn-sm" @onclick="Logout">Logout</button>
+                }
+                else
+                {
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm" @onclick="ToggleLoginDropdown">Login</button>
+                        @if (_showLoginDropdown)
+                        {
+                            <div class="login-dropdown">
+                                @foreach (var user in _users)
+                                {
+                                    <button class="login-dropdown-item" @onclick="() => LoginAs(user)">
+                                        <span class="user-avatar user-avatar-sm" style="background-color: @GetAvatarColour(user.Name)">@user.Name[0]</span>
+                                        @user.Name
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
             <button class="theme-toggle" @onclick="ToggleTheme" aria-label="Toggle theme">
                 @(_isDark ? "\u2600\uFE0F" : "\uD83C\uDF19")
             </button>
@@ -36,9 +71,18 @@
 @code {
     private bool _collapseNav = true;
     private bool _isDark;
+    private bool _showLoginDropdown;
     private IJSObjectReference? _themeModule;
+    private List<User> _users = [];
 
     private string NavMenuCssClass => _collapseNav ? "collapse navbar-collapse" : "navbar-collapse";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _users = await db.Users.OrderBy(u => u.Name).ToListAsync();
+        UserSession.OnChange += StateHasChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -56,6 +100,22 @@
         _collapseNav = !_collapseNav;
     }
 
+    private void ToggleLoginDropdown()
+    {
+        _showLoginDropdown = !_showLoginDropdown;
+    }
+
+    private void LoginAs(User user)
+    {
+        UserSession.Login(user);
+        _showLoginDropdown = false;
+    }
+
+    private void Logout()
+    {
+        UserSession.Logout();
+    }
+
     private async Task ToggleTheme()
     {
         _isDark = !_isDark;
@@ -63,5 +123,17 @@
         {
             await _themeModule.InvokeVoidAsync("setTheme", _isDark ? "dark" : "light");
         }
+    }
+
+    private static string GetAvatarColour(string name)
+    {
+        var hash = name.Aggregate(0, (h, c) => h * 31 + c);
+        var hue = Math.Abs(hash) % 360;
+        return $"hsl({hue}, 55%, 50%)";
+    }
+
+    public void Dispose()
+    {
+        UserSession.OnChange -= StateHasChanged;
     }
 }
