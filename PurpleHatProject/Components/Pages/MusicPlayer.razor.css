@@ -234,9 +234,13 @@
     justify-content: flex-end;
 }
 
-.volume-icon {
+.volume-mute-btn {
     color: var(--text-muted);
-    flex-shrink: 0;
+    padding: 0.25rem;
+}
+
+.volume-mute-btn:hover {
+    color: var(--accent);
 }
 
 .volume-slider {
