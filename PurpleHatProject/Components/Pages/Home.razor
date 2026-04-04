@@ -4,16 +4,26 @@
 
 <h1>PurpleHatProject</h1>
 
-<p>A Blazor Web application with dual database support for both relational and NoSQL data.</p>
+<p>A music player web application built with Blazor Server, featuring audio playback, user accounts, favourite tracks, and session persistence.</p>
+
+<div class="alert alert-info">
+    <strong>Get started:</strong> Head to the <a href="music"><strong>Music Player</strong></a> to browse tracks, control playback, and manage your favourites.
+</div>
 
 <hr />
 
 <h4>Pages</h4>
 
 <ul>
-    <li><strong><a href="counter">Counter</a></strong> — A simple interactive counter to verify that real-time server communication is working.</li>
-    <li><strong><a href="db-health">SQLite DB Health</a></strong> — Tests connectivity to the relational database with a read/write round-trip.</li>
-    <li><strong><a href="dynamodb-health">DynamoDB Health</a></strong> — Tests connectivity to the NoSQL database with a read/write round-trip.</li>
+    <li><strong><a href="music">Music Player</a></strong> — The main application. Browse and play tracks, favourite them, control volume, and skip between songs. Log in to persist your favourites and playback session.</li>
+</ul>
+
+<p class="text-muted" style="font-size: 0.85rem;">The pages below are development/debugging tools and are not part of the core application:</p>
+
+<ul class="text-muted" style="font-size: 0.85rem;">
+    <li><a href="counter">Counter</a> — Verifies Blazor Server real-time interactivity is working.</li>
+    <li><a href="db-health">SQLite Health</a> — Tests SQLite connectivity with a read/write round-trip.</li>
+    <li><a href="dynamodb-health">DynamoDB Health</a> — Tests DynamoDB connectivity with a read/write round-trip.</li>
 </ul>
 
 <hr />
@@ -25,49 +35,40 @@
         <tr>
             <th>Category</th>
             <th>Technology</th>
-            <th>Version</th>
         </tr>
     </thead>
     <tbody>
         <tr>
             <td>Framework</td>
-            <td>.NET / Blazor Server</td>
-            <td>10.0</td>
+            <td>.NET 10 / Blazor Server</td>
         </tr>
         <tr>
             <td>UI</td>
-            <td>Bootstrap</td>
-            <td>5.3.3</td>
-        </tr>
-        <tr>
-            <td>ORM</td>
-            <td>Entity Framework Core</td>
-            <td>10.0.5</td>
+            <td>Bootstrap 5.3</td>
         </tr>
         <tr>
             <td>Relational DB</td>
-            <td>SQLite</td>
-            <td>—</td>
+            <td>SQLite via EF Core (users, favourites)</td>
         </tr>
         <tr>
             <td>NoSQL DB</td>
-            <td>Amazon DynamoDB</td>
-            <td>—</td>
+            <td>Amazon DynamoDB (playback sessions)</td>
         </tr>
         <tr>
             <td>Hosting</td>
             <td>AWS EC2</td>
-            <td>—</td>
         </tr>
         <tr>
             <td>CI/CD</td>
             <td>GitHub Actions</td>
-            <td>—</td>
         </tr>
         <tr>
-            <td>AI Assistant</td>
-            <td>Claude Code - Opus</td>
-            <td>4.6</td>
+            <td>Testing</td>
+            <td>xUnit, FakeItEasy, Shouldly</td>
+        </tr>
+        <tr>
+            <td>AI Tooling</td>
+            <td>Claude Code (Opus 4.6)</td>
         </tr>
     </tbody>
 </table>

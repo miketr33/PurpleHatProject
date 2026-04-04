@@ -1,143 +1,133 @@
 # PurpleHatProject
 
-A Blazor Server application (.NET 10) with dual database support: SQLite for relational data and DynamoDB for NoSQL data.
+A music player web application built with .NET 10 and Blazor Server. Users can browse and play audio tracks, manage favourites, and have their playback session remembered across visits.
 
-## Prerequisites
+## Features
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [AWS CLI v2](https://aws.amazon.com/cli/) (for connecting to real AWS)
-- EF Core tools: `dotnet tool install --global dotnet-ef`
+### Music Player
+- Track listing with title, artist, and album artwork (fallback icon when no artwork is available)
+- Audio playback with play/pause, skip next/previous, and volume control with mute toggle
+- Visual EQ indicator on the currently playing track
+- Click any track to start playing immediately
+
+### Favourite Tracks
+- Heart icon on each track to toggle favourites
+- Filter view to show only favourite tracks — skip/auto-advance respects the active filter
+- Anonymous users get session-only favourites (lost on reload)
+- Logged-in users get persistent favourites stored in SQLite
+
+### User Accounts
+- Simple login system with seeded users (no passwords — for demo purposes)
+- User avatar with colour derived from name
+- Login/logout from the navbar
+
+### Session Persistence
+- **In-session:** Playback state (track, position, volume, play/pause) survives page navigation within the same browser session
+- **Cross-session:** Logged-in users have their playback state saved to DynamoDB — log out, log back in, and resume where you left off
+
+### Other
+- Dark/light theme toggle with localStorage persistence
+- Responsive navbar with Bootstrap 5.3
+- CI pipeline via GitHub Actions (build + test on every push/PR)
+
+## Tech Stack
+
+| Category | Technology | Purpose |
+|---|---|---|
+| Framework | .NET 10 / Blazor Server | Server-side interactive UI via SignalR |
+| UI | Bootstrap 5.3 | Responsive layout, theming |
+| Relational DB | SQLite via EF Core | Users, favourite tracks |
+| NoSQL DB | Amazon DynamoDB | Playback session persistence |
+| Audio | HTML5 Audio API via JS interop | Browser-side playback |
+| Hosting | AWS EC2 | Production deployment |
+| CI/CD | GitHub Actions | Automated build and test |
+| Testing | xUnit + FakeItEasy + Shouldly | Unit tests for services |
+| AI Tooling | Claude Code (Opus 4.6) | AI-assisted development |
+
+## Architectural Decisions
+
+### Why two databases?
+
+**SQLite** handles relational data (users and their favourite tracks) where foreign key relationships and queries like "get all favourites for user X" are natural. It's embedded, requires no setup, and is more than sufficient for a single-instance deployment.
+
+**DynamoDB** handles playback session state — a key-value lookup by user ID with fast writes on every pause. This data is ephemeral, non-relational, and benefits from DynamoDB's simple get/put model. It also demonstrates working with both relational and NoSQL databases in the same application.
+
+### Audio serving
+
+Audio files are served from `wwwroot/audio/` as static files rather than from S3 or another external store. This keeps the deployment self-contained with zero external dependencies for playback. Track metadata (artist, title) is parsed from filenames using the `"Artist - Title.mp3"` convention, so adding tracks is as simple as dropping files into a folder.
+
+### Playback state — two layers
+
+A scoped in-memory service (`PlaybackStateService`) handles navigation within the same Blazor circuit — fast, no I/O. DynamoDB (`PlaybackSessionService`) is the durable layer for cross-session restore. The component checks in-memory first, DynamoDB second.
+
+### Favourite tracks — anonymous vs logged-in
+
+The `TrackFavouriteService` holds favourites in a `HashSet` in memory. For anonymous users that's all there is — session-only. For logged-in users, every toggle also writes/deletes from SQLite via `IDbContextFactory`. This avoids making anonymous users hit the database while giving logged-in users full persistence.
+
+### Track identification
+
+Favourite tracks are stored by `AudioUrl` (the filename path) rather than `Track.Id`. The ID is assigned at runtime based on alphabetical file ordering — adding or renaming a file would shift all IDs and break existing favourites. The filename is stable.
+
+## Test Coverage
+
+23 unit tests covering the two services with the most meaningful logic:
+
+**TrackService** (8 tests) — filename parsing, edge cases (no separator, multiple separators, whitespace), alphabetical ordering, non-mp3 filtering, missing directory handling.
+
+**TrackFavouriteService** (12 tests) — toggle add/remove, anonymous vs logged-in persistence, DB round-trips using EF Core in-memory provider, `LoadForUserAsync` scoping, `Clear`, and `OnChange` event firing.
+
+**Counter** (3 tests) — Blazor component tests via bUnit verifying interactive rendering.
 
 ## Getting Started
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for DynamoDB Local)
+- EF Core tools: `dotnet tool install --global dotnet-ef`
+
+### Run locally
 
 ```bash
 cd PurpleHatProject
 dotnet run
 ```
 
-The app starts at `https://localhost:<port>` (check console output for the exact URL).
-
-SQLite is ready out of the box — migrations run automatically on startup and create a local `purplehat.db` file. DynamoDB requires a bit more setup (see below).
-
-## Pages
-
-| Page | Route | Purpose |
-|---|---|---|
-| **Home** | `/` | Landing page |
-| **Counter** | `/counter` | Quick check that Blazor Server interactivity is working |
-| **SQLite DB Health** | `/db-health` | Tests SQLite connectivity with a read/write round-trip |
-| **DynamoDB Health** | `/dynamodb-health` | Tests DynamoDB connectivity with a read/write round-trip |
-
-The health check pages are for development use only and should be removed before production.
-
-## Database Setup
-
-### SQLite (local, always works)
-
-No setup required. The app creates a `purplehat.db` file on first run and applies EF Core migrations automatically.
-
-**Adding a new entity:**
-
-1. Create the entity class in `Data/`
-2. Add a `DbSet` property to `ApplicationDbContext`
-3. Run `dotnet ef migrations add <MigrationName>` from the `PurpleHatProject` directory
-4. Restart the app (migrations apply on startup)
-
-**Note:** The SQLite database file is excluded from git. Data is local to your machine and will be lost if the file is deleted or the app is running in a container that gets recreated.
-
-### DynamoDB Local (development)
-
-DynamoDB Local runs in Docker and emulates the real AWS DynamoDB service. No AWS account needed.
-
-**Start it:**
+SQLite is ready out of the box — migrations run on startup. For DynamoDB session persistence, start DynamoDB Local:
 
 ```bash
 docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
 ```
 
-**Verify it's running:**
+The app connects to `http://localhost:8000` in the Development environment. Tables are created automatically on first use.
+
+### Run tests
 
 ```bash
-docker ps --filter name=dynamodb-local
+dotnet test
 ```
-
-The app is pre-configured to connect to `http://localhost:8000` when running in the Development environment (see `appsettings.Development.json`). Tables are created automatically by the health check page on first visit.
-
-**Stop/restart:**
-
-```bash
-docker stop dynamodb-local
-docker start dynamodb-local
-```
-
-**Note:** DynamoDB Local data is lost when the container is removed (`docker rm`). Stopping and starting the container preserves data.
-
-### DynamoDB (real AWS)
-
-To connect to the real AWS DynamoDB service instead of the local Docker instance:
-
-**1. Configure AWS credentials:**
-
-```bash
-aws configure
-```
-
-You will be prompted for:
-- **Access Key ID** and **Secret Access Key** — from your IAM user in the AWS console
-- **Default region** — e.g. `eu-west-2`
-- **Output format** — `json`
-
-**2. Create the table (if it doesn't already exist):**
-
-```bash
-aws dynamodb create-table \
-  --table-name HealthCheck \
-  --attribute-definitions AttributeName=Id,AttributeType=S \
-  --key-schema AttributeName=Id,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region eu-west-2
-```
-
-**3. Point the app at real AWS:**
-
-Remove the `DynamoDb:ServiceUrl` section from `appsettings.Development.json`:
-
-```json
-{
-  "DynamoDb": {
-    "ServiceUrl": "http://localhost:8000"   <- Remove this line
-  }
-}
-```
-
-When `ServiceUrl` is absent, the AWS SDK automatically uses your credentials from `~/.aws/` and connects to the real service.
-
-**4. Verify:**
-
-Run the app and visit `/dynamodb-health`. It should show a green "Connected" badge.
 
 ## Project Structure
 
 ```
 PurpleHatProject/
   Components/
-    Layout/          -- NavMenu, MainLayout
-    Pages/           -- Razor pages (Home, Counter, DbHealth, DynamoDbHealth)
-  Data/
-    ApplicationDbContext.cs   -- EF Core context for SQLite
-    HealthCheckEntry.cs       -- SQLite health check entity
-  Migrations/                 -- EF Core migrations
-  Program.cs                  -- Service registration and middleware
-  appsettings.json            -- Shared config (SQLite connection string)
-  appsettings.Development.json -- Dev overrides (DynamoDB Local URL)
+    Layout/            -- NavMenu (login, theme toggle), MainLayout
+    Pages/             -- MusicPlayer, Home, health checks
+  Models/              -- Track, User, FavouriteTrack
+  Services/            -- TrackService, TrackFavouriteService,
+                          PlaybackSessionService, PlaybackStateService,
+                          UserSessionService
+  Data/                -- EF Core DbContext, migrations
+  wwwroot/
+    audio/             -- MP3 track files (Artist - Title.mp3)
+    js/                -- audioPlayer.js, theme.js
+    app.css            -- Global styles with dark/light CSS variables
+
+PurpleHatProject.Tests/
+  Services/            -- TrackServiceTests, TrackFavouriteServiceTests
 ```
 
-## AI Tooling Configuration
+## AI Tooling
 
-This project includes a `CLAUDE.md` file in the root directory, which configures Claude Code 
-with persistent project context — covering the tech stack, infrastructure, testing approach 
-and code quality expectations.
-
-> **Note:** The project brief has been omitted from the committed version to avoid sharing 
-> assessment details that may apply to other candidates.
+This project was built with Claude Code (Opus 4.6). A `CLAUDE.md` file in the root configures the AI assistant with project context — tech stack, code quality expectations, testing approach, and architectural constraints. This ensures consistent, explainable output aligned with the project's standards.
