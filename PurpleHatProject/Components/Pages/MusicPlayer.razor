@@ -5,6 +5,9 @@
 @using PurpleHatProject.Services
 @inject ITrackService TrackService
 @inject ITrackFavouriteService TrackFavourites
+@inject IPlaybackSessionService PlaybackSession
+@inject IPlaybackStateService PlaybackState
+@inject IUserSessionService UserSession
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -183,6 +186,7 @@
     {
         _tracks = TrackService.GetTracks();
         TrackFavourites.OnChange += StateHasChanged;
+        UserSession.OnChange += OnUserChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -192,6 +196,11 @@
             _audioModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/audioPlayer.js");
             _dotNetRef = DotNetObjectReference.Create(this);
             await _audioModule.InvokeVoidAsync("init", _dotNetRef);
+
+            if (PlaybackState.HasState)
+                await RestoreFromStateAsync();
+            else
+                await RestoreFromDynamoAsync();
         }
     }
 
@@ -210,6 +219,7 @@
         {
             await _audioModule.InvokeVoidAsync("pause");
             _isPlaying = false;
+            await SaveStateAsync();
         }
         else
         {
@@ -288,6 +298,75 @@
         _showFavouritesOnly = !_showFavouritesOnly;
     }
 
+    private async void OnUserChanged()
+    {
+        if (_audioModule is null) return;
+
+        if (UserSession.CurrentUser is not null)
+            await RestoreFromDynamoAsync();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveStateAsync()
+    {
+        if (CurrentTrack is null || _audioModule is null) return;
+
+        var position = await _audioModule.InvokeAsync<double>("getCurrentTime");
+        PlaybackState.Save(CurrentTrack.AudioUrl, position, _volume, _isPlaying);
+
+        if (UserSession.CurrentUser is not null)
+            await PlaybackSession.SaveAsync(UserSession.CurrentUser.Id, CurrentTrack.AudioUrl, position, _volume);
+    }
+
+    private async Task RestoreFromStateAsync()
+    {
+        if (_audioModule is null || !PlaybackState.HasState) return;
+
+        var track = _tracks.FirstOrDefault(t => t.AudioUrl == PlaybackState.AudioUrl);
+        if (track is null) return;
+
+        _currentTrackId = track.Id;
+        _volume = PlaybackState.Volume;
+
+        var effectiveVolume = IsMuted ? 0 : _volume;
+        await _audioModule.InvokeVoidAsync("play", track.AudioUrl, effectiveVolume);
+        await _audioModule.InvokeVoidAsync("setCurrentTime", PlaybackState.Position);
+
+        if (PlaybackState.WasPlaying)
+        {
+            _isPlaying = true;
+        }
+        else
+        {
+            await _audioModule.InvokeVoidAsync("pause");
+            _isPlaying = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task RestoreFromDynamoAsync()
+    {
+        if (UserSession.CurrentUser is null || _audioModule is null) return;
+
+        var session = await PlaybackSession.LoadAsync(UserSession.CurrentUser.Id);
+        if (session is null) return;
+
+        var track = _tracks.FirstOrDefault(t => t.AudioUrl == session.AudioUrl);
+        if (track is null) return;
+
+        _currentTrackId = track.Id;
+        _volume = session.Volume;
+
+        await _audioModule.InvokeVoidAsync("play", track.AudioUrl, _volume);
+        await _audioModule.InvokeVoidAsync("setCurrentTime", session.Position);
+        await _audioModule.InvokeVoidAsync("pause");
+        _isPlaying = false;
+
+        StateHasChanged();
+    }
+
     [JSInvokable]
     public async Task OnTrackEnded()
     {
@@ -297,6 +376,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        await SaveStateAsync();
         if (_audioModule is not null)
         {
             await _audioModule.InvokeVoidAsync("dispose");
@@ -304,5 +384,6 @@
         }
         _dotNetRef?.Dispose();
         TrackFavourites.OnChange -= StateHasChanged;
+        UserSession.OnChange -= OnUserChanged;
     }
 }

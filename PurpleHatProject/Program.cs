@@ -24,6 +24,8 @@ else
 builder.Services.AddSingleton<ITrackService, TrackService>();
 builder.Services.AddScoped<IUserSessionService, UserSessionService>();
 builder.Services.AddScoped<ITrackFavouriteService, TrackFavouriteService>();
+builder.Services.AddScoped<IPlaybackStateService, PlaybackStateService>();
+builder.Services.AddSingleton<IPlaybackSessionService, PlaybackSessionService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
