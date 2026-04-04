@@ -29,6 +29,16 @@ export function setVolume(volume) {
     }
 }
 
+export function getCurrentTime() {
+    return audio ? audio.currentTime : 0;
+}
+
+export function setCurrentTime(time) {
+    if (audio) {
+        audio.currentTime = time;
+    }
+}
+
 export function dispose() {
     if (audio) {
         audio.pause();
