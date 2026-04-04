@@ -1,8 +1,11 @@
 @page "/music"
 @rendermode InteractiveServer
+@using Microsoft.JSInterop
 @using PurpleHatProject.Models
 @using PurpleHatProject.Services
 @inject ITrackService TrackService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Music Player</PageTitle>
 
@@ -113,7 +116,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
         </svg>
-        <input type="range" min="0" max="100" @bind="_volume" @bind:event="oninput" class="volume-slider" />
+        <input type="range" min="0" max="100" value="@_volume" @oninput="OnVolumeChange" class="volume-slider" />
     </div>
 </div>
 
@@ -122,6 +125,8 @@
     private bool _isPlaying;
     private int _volume = 60;
     private IReadOnlyList<Track> _tracks = [];
+    private IJSObjectReference? _audioModule;
+    private DotNetObjectReference<MusicPlayer>? _dotNetRef;
 
     private Track? CurrentTrack => _currentTrackId is not null
         ? _tracks.FirstOrDefault(t => t.Id == _currentTrackId)
@@ -132,33 +137,89 @@
         _tracks = TrackService.GetTracks();
     }
 
-    private void SelectTrack(int trackId)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _audioModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/audioPlayer.js");
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await _audioModule.InvokeVoidAsync("init", _dotNetRef);
+        }
+    }
+
+    private async Task SelectTrack(int trackId)
     {
         _currentTrackId = trackId;
         _isPlaying = true;
+        await PlayCurrentTrack();
     }
 
-    private void TogglePlayPause()
+    private async Task TogglePlayPause()
     {
-        if (_currentTrackId is null) return;
-        _isPlaying = !_isPlaying;
+        if (_currentTrackId is null || _audioModule is null) return;
+
+        if (_isPlaying)
+        {
+            await _audioModule.InvokeVoidAsync("pause");
+            _isPlaying = false;
+        }
+        else
+        {
+            await _audioModule.InvokeVoidAsync("resume");
+            _isPlaying = true;
+        }
     }
 
-    private void NextTrack()
+    private async Task NextTrack()
     {
         if (_currentTrackId is null) return;
         var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
         var nextIndex = (currentIndex + 1) % _tracks.Count;
         _currentTrackId = _tracks[nextIndex].Id;
         _isPlaying = true;
+        await PlayCurrentTrack();
     }
 
-    private void PreviousTrack()
+    private async Task PreviousTrack()
     {
         if (_currentTrackId is null) return;
         var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
         var prevIndex = (currentIndex - 1 + _tracks.Count) % _tracks.Count;
         _currentTrackId = _tracks[prevIndex].Id;
         _isPlaying = true;
+        await PlayCurrentTrack();
+    }
+
+    private async Task PlayCurrentTrack()
+    {
+        if (_audioModule is null || CurrentTrack is null) return;
+        await _audioModule.InvokeVoidAsync("play", CurrentTrack.AudioUrl, _volume);
+    }
+
+    private async Task OnVolumeChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var vol))
+        {
+            _volume = vol;
+            if (_audioModule is not null)
+                await _audioModule.InvokeVoidAsync("setVolume", _volume);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnTrackEnded()
+    {
+        await NextTrack();
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_audioModule is not null)
+        {
+            await _audioModule.InvokeVoidAsync("dispose");
+            await _audioModule.DisposeAsync();
+        }
+        _dotNetRef?.Dispose();
     }
 }
