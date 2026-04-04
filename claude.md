@@ -40,9 +40,19 @@ JetBrains Rider
 - Minimal, readable code over clever code
 - No over-engineering — practical solutions first
 
+## Code Quality Notice
+This project will be reviewed and discussed with the assessor. All code should be:
+- Clean, readable and well-structured — not just functional
+- Explainable at every level — avoid black-box solutions
+- Consistent in style and naming throughout
+- Commented where the reasoning isn't immediately obvious
+
 ## Current Status
 Infrastructure complete. Awaiting project brief to begin feature work.
 Update this file with the brief and any specific requirements once received.
 
-## Project Brief
-<!-- Paste the brief here once received -->
+## Project Brief Part 1 - Prep
+There are two parts to this brief, the first is the prep - coming soon...
+
+## Project Brief Part 2 - The actual brief
+Coming soon when test begins...
