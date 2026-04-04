@@ -46,9 +46,34 @@
     text-align: center;
 }
 
-.col-duration {
-    width: 5rem;
-    text-align: right;
+.col-art {
+    width: 2.5rem;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.track-art {
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
+    background-color: var(--table-stripe);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-muted);
+}
+
+.track-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.track-art svg {
+    width: 18px;
+    height: 18px;
 }
 
 /* EQ bars animation */

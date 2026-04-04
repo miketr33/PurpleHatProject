@@ -13,6 +13,7 @@
         <thead>
             <tr>
                 <th class="col-num">#</th>
+                <th class="col-art"></th>
                 <th>Title</th>
                 <th>Artist</th>
             </tr>
@@ -35,6 +36,20 @@
                         {
                             @track.Id
                         }
+                    </td>
+                    <td class="col-art">
+                        <div class="track-art">
+                            @if (track.ArtworkUrl is not null)
+                            {
+                                <img src="@track.ArtworkUrl" alt="@track.Title album art" />
+                            }
+                            else
+                            {
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                                </svg>
+                            }
+                        </div>
                     </td>
                     <td class="track-title">@track.Title</td>
                     <td class="text-muted">@track.Artist</td>
