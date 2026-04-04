@@ -1,5 +1,8 @@
 @page "/music"
 @rendermode InteractiveServer
+@using PurpleHatProject.Models
+@using PurpleHatProject.Services
+@inject ITrackService TrackService
 
 <PageTitle>Music Player</PageTitle>
 
@@ -12,7 +15,6 @@
                 <th class="col-num">#</th>
                 <th>Title</th>
                 <th>Artist</th>
-                <th class="col-duration">Duration</th>
             </tr>
         </thead>
         <tbody>
@@ -36,7 +38,6 @@
                     </td>
                     <td class="track-title">@track.Title</td>
                     <td class="text-muted">@track.Artist</td>
-                    <td class="col-duration text-muted">@track.Duration</td>
                 </tr>
             }
         </tbody>
@@ -102,21 +103,19 @@
 </div>
 
 @code {
-    private int? _currentTrackId = 2;
+    private int? _currentTrackId;
     private bool _isPlaying;
     private int _volume = 60;
+    private IReadOnlyList<Track> _tracks = [];
 
-    private readonly List<TrackInfo> _tracks =
-    [
-        new(1, "Blinding Lights", "The Weeknd", "3:20", null),
-        new(2, "Bohemian Rhapsody", "Queen", "5:55", null),
-        new(3, "Levitating", "Dua Lipa", "3:23", null),
-        new(4, "Hotel California", "Eagles", "6:30", null)
-    ];
-
-    private TrackInfo? CurrentTrack => _currentTrackId is not null
+    private Track? CurrentTrack => _currentTrackId is not null
         ? _tracks.FirstOrDefault(t => t.Id == _currentTrackId)
         : null;
+
+    protected override void OnInitialized()
+    {
+        _tracks = TrackService.GetTracks();
+    }
 
     private void SelectTrack(int trackId)
     {
@@ -133,7 +132,7 @@
     private void NextTrack()
     {
         if (_currentTrackId is null) return;
-        var currentIndex = _tracks.FindIndex(t => t.Id == _currentTrackId);
+        var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
         var nextIndex = (currentIndex + 1) % _tracks.Count;
         _currentTrackId = _tracks[nextIndex].Id;
         _isPlaying = true;
@@ -142,11 +141,9 @@
     private void PreviousTrack()
     {
         if (_currentTrackId is null) return;
-        var currentIndex = _tracks.FindIndex(t => t.Id == _currentTrackId);
+        var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
         var prevIndex = (currentIndex - 1 + _tracks.Count) % _tracks.Count;
         _currentTrackId = _tracks[prevIndex].Id;
         _isPlaying = true;
     }
-
-    private record TrackInfo(int Id, string Title, string Artist, string Duration, string? ArtworkUrl);
 }
