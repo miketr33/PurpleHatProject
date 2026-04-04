@@ -1,0 +1,63 @@
+@page "/music"
+@rendermode InteractiveServer
+
+<PageTitle>Music Player</PageTitle>
+
+<h1>Music Player</h1>
+
+<div class="track-list">
+    <table class="table track-table">
+        <thead>
+            <tr>
+                <th class="col-num">#</th>
+                <th>Title</th>
+                <th>Artist</th>
+                <th class="col-duration">Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var track in _tracks)
+            {
+                var isPlaying = track.Id == _currentTrackId;
+                <tr class="@(isPlaying ? "track-row active" : "track-row")" @onclick="() => SelectTrack(track.Id)">
+                    <td class="col-num">
+                        @if (isPlaying)
+                        {
+                            <span class="eq-bars" title="Now playing">
+                                <span class="eq-bar"></span>
+                                <span class="eq-bar"></span>
+                                <span class="eq-bar"></span>
+                            </span>
+                        }
+                        else
+                        {
+                            @track.Id
+                        }
+                    </td>
+                    <td class="track-title">@track.Title</td>
+                    <td class="text-muted">@track.Artist</td>
+                    <td class="col-duration text-muted">@track.Duration</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private int? _currentTrackId = 2;
+
+    private readonly List<TrackInfo> _tracks =
+    [
+        new(1, "Blinding Lights", "The Weeknd", "3:20"),
+        new(2, "Bohemian Rhapsody", "Queen", "5:55"),
+        new(3, "Levitating", "Dua Lipa", "3:23"),
+        new(4, "Hotel California", "Eagles", "6:30")
+    ];
+
+    private void SelectTrack(int trackId)
+    {
+        _currentTrackId = trackId;
+    }
+
+    private record TrackInfo(int Id, string Title, string Artist, string Duration);
+}
