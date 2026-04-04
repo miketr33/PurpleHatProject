@@ -47,8 +47,22 @@
     <div class="player-now-playing">
         @if (CurrentTrack is not null)
         {
-            <span class="now-playing-title">@CurrentTrack.Title</span>
-            <span class="now-playing-artist">@CurrentTrack.Artist</span>
+            <div class="album-art">
+                @if (CurrentTrack.ArtworkUrl is not null)
+                {
+                    <img src="@CurrentTrack.ArtworkUrl" alt="@CurrentTrack.Title album art" />
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                }
+            </div>
+            <div class="now-playing-info">
+                <span class="now-playing-title">@CurrentTrack.Title</span>
+                <span class="now-playing-artist">@CurrentTrack.Artist</span>
+            </div>
         }
     </div>
 
@@ -94,10 +108,10 @@
 
     private readonly List<TrackInfo> _tracks =
     [
-        new(1, "Blinding Lights", "The Weeknd", "3:20"),
-        new(2, "Bohemian Rhapsody", "Queen", "5:55"),
-        new(3, "Levitating", "Dua Lipa", "3:23"),
-        new(4, "Hotel California", "Eagles", "6:30")
+        new(1, "Blinding Lights", "The Weeknd", "3:20", null),
+        new(2, "Bohemian Rhapsody", "Queen", "5:55", null),
+        new(3, "Levitating", "Dua Lipa", "3:23", null),
+        new(4, "Hotel California", "Eagles", "6:30", null)
     ];
 
     private TrackInfo? CurrentTrack => _currentTrackId is not null
@@ -134,5 +148,5 @@
         _isPlaying = true;
     }
 
-    private record TrackInfo(int Id, string Title, string Artist, string Duration);
+    private record TrackInfo(int Id, string Title, string Artist, string Duration, string? ArtworkUrl);
 }
