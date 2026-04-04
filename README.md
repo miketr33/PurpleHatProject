@@ -132,3 +132,12 @@ PurpleHatProject/
   appsettings.json            -- Shared config (SQLite connection string)
   appsettings.Development.json -- Dev overrides (DynamoDB Local URL)
 ```
+
+## AI Tooling Configuration
+
+This project includes a `CLAUDE.md` file in the root directory, which configures Claude Code 
+with persistent project context — covering the tech stack, infrastructure, testing approach 
+and code quality expectations.
+
+> **Note:** The project brief has been omitted from the committed version to avoid sharing 
+> assessment details that may apply to other candidates.
