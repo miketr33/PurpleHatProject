@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using PurpleHatProject.Components;
 using PurpleHatProject.Data;
+using PurpleHatProject.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,8 @@ else
 {
     builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient());
 }
+
+builder.Services.AddSingleton<ITrackService, TrackService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
