@@ -23,6 +23,7 @@ else
 
 builder.Services.AddSingleton<ITrackService, TrackService>();
 builder.Services.AddScoped<IUserSessionService, UserSessionService>();
+builder.Services.AddScoped<ITrackFavouriteService, TrackFavouriteService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

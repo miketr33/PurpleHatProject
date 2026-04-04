@@ -4,12 +4,22 @@
 @using PurpleHatProject.Models
 @using PurpleHatProject.Services
 @inject ITrackService TrackService
+@inject ITrackFavouriteService TrackFavourites
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <PageTitle>Music Player</PageTitle>
 
 <h1>Music Player</h1>
+
+<div class="track-list-toolbar">
+    <button class="@(_showFavouritesOnly ? "filter-btn filter-btn-active" : "filter-btn")" @onclick="ToggleFavouritesFilter">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="@(_showFavouritesOnly ? "currentColor" : "none")" stroke="currentColor" stroke-width="2">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        Favourite Tracks
+    </button>
+</div>
 
 <div class="track-list">
     <table class="table track-table">
@@ -19,10 +29,11 @@
                 <th class="col-art"></th>
                 <th>Title</th>
                 <th>Artist</th>
+                <th class="col-fav"></th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var track in _tracks)
+            @foreach (var track in DisplayedTracks)
             {
                 var isPlaying = track.Id == _currentTrackId;
                 <tr class="@(isPlaying ? "track-row active" : "track-row")" @onclick="() => SelectTrack(track.Id)">
@@ -56,6 +67,22 @@
                     </td>
                     <td class="track-title">@track.Title</td>
                     <td class="text-muted">@track.Artist</td>
+                    <td class="col-fav">
+                        <button class="fav-btn" @onclick="() => ToggleFavourite(track)" @onclick:stopPropagation="true" title="@(TrackFavourites.IsFavourite(track.AudioUrl) ? "Remove from favourites" : "Add to favourites")">
+                            @if (TrackFavourites.IsFavourite(track.AudioUrl))
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="fav-icon fav-active">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="fav-icon">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            }
+                        </button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -135,6 +162,7 @@
     private int? _currentTrackId;
     private bool _isPlaying;
     private bool _isMuted;
+    private bool _showFavouritesOnly;
     private int _volume = 60;
     private int _volumeBeforeMute = 60;
     private IReadOnlyList<Track> _tracks = [];
@@ -147,9 +175,14 @@
         ? _tracks.FirstOrDefault(t => t.Id == _currentTrackId)
         : null;
 
+    private IEnumerable<Track> DisplayedTracks => _showFavouritesOnly
+        ? _tracks.Where(t => TrackFavourites.IsFavourite(t.AudioUrl))
+        : _tracks;
+
     protected override void OnInitialized()
     {
         _tracks = TrackService.GetTracks();
+        TrackFavourites.OnChange += StateHasChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -188,9 +221,11 @@
     private async Task NextTrack()
     {
         if (_currentTrackId is null) return;
-        var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
-        var nextIndex = (currentIndex + 1) % _tracks.Count;
-        _currentTrackId = _tracks[nextIndex].Id;
+        var list = DisplayedTracks.ToList();
+        if (list.Count == 0) return;
+        var currentIndex = list.FindIndex(t => t.Id == _currentTrackId);
+        var nextIndex = (currentIndex + 1) % list.Count;
+        _currentTrackId = list[nextIndex].Id;
         _isPlaying = true;
         await PlayCurrentTrack();
     }
@@ -198,9 +233,11 @@
     private async Task PreviousTrack()
     {
         if (_currentTrackId is null) return;
-        var currentIndex = _tracks.ToList().FindIndex(t => t.Id == _currentTrackId);
-        var prevIndex = (currentIndex - 1 + _tracks.Count) % _tracks.Count;
-        _currentTrackId = _tracks[prevIndex].Id;
+        var list = DisplayedTracks.ToList();
+        if (list.Count == 0) return;
+        var currentIndex = list.FindIndex(t => t.Id == _currentTrackId);
+        var prevIndex = (currentIndex - 1 + list.Count) % list.Count;
+        _currentTrackId = list[prevIndex].Id;
         _isPlaying = true;
         await PlayCurrentTrack();
     }
@@ -241,6 +278,16 @@
         }
     }
 
+    private async Task ToggleFavourite(Track track)
+    {
+        await TrackFavourites.ToggleAsync(track.AudioUrl);
+    }
+
+    private void ToggleFavouritesFilter()
+    {
+        _showFavouritesOnly = !_showFavouritesOnly;
+    }
+
     [JSInvokable]
     public async Task OnTrackEnded()
     {
@@ -256,5 +303,6 @@
             await _audioModule.DisposeAsync();
         }
         _dotNetRef?.Dispose();
+        TrackFavourites.OnChange -= StateHasChanged;
     }
 }

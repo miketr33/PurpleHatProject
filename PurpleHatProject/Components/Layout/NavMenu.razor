@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject IUserSessionService UserSession
+@inject ITrackFavouriteService TrackFavourites
 @implements IDisposable
 
 <nav class="navbar navbar-expand-md navbar-dark bg-dark">
@@ -105,15 +106,17 @@
         _showLoginDropdown = !_showLoginDropdown;
     }
 
-    private void LoginAs(User user)
+    private async Task LoginAs(User user)
     {
         UserSession.Login(user);
+        await TrackFavourites.LoadForUserAsync(user.Id);
         _showLoginDropdown = false;
     }
 
     private void Logout()
     {
         UserSession.Logout();
+        TrackFavourites.Clear();
     }
 
     private async Task ToggleTheme()
