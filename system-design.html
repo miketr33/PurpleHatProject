@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PurpleHat Music Player - System Design</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-alt: #222636;
+            --border: #2e3347;
+            --text: #e1e4ed;
+            --text-muted: #8b90a0;
+            --accent: #a78bfa;
+            --accent-dim: #7c5cbf;
+            --green: #4ade80;
+            --blue: #60a5fa;
+            --orange: #fb923c;
+            --red: #f87171;
+            --cyan: #22d3ee;
+            --yellow: #fbbf24;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 2rem;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: var(--accent);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2 .num {
+            background: var(--accent);
+            color: var(--bg);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+
+        p { margin-bottom: 0.75rem; color: var(--text-muted); }
+        strong { color: var(--text); }
+
+        /* Diagram boxes */
+        .diagram {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+
+        .arch-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .arch-row {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .arch-box {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            text-align: center;
+            min-width: 160px;
+            position: relative;
+        }
+
+        .arch-box.github  { border-color: var(--text-muted); background: rgba(139,144,160,0.08); }
+        .arch-box.ec2     { border-color: var(--orange); background: rgba(251,146,60,0.08); }
+        .arch-box.dynamo  { border-color: var(--blue); background: rgba(96,165,250,0.08); }
+        .arch-box.sqlite  { border-color: var(--green); background: rgba(74,222,128,0.08); }
+        .arch-box.memory  { border-color: var(--cyan); background: rgba(34,211,238,0.08); }
+        .arch-box.blazor  { border-color: var(--accent); background: rgba(167,139,250,0.08); }
+        .arch-box.browser { border-color: var(--yellow); background: rgba(251,191,36,0.08); }
+
+        .arch-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .arch-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .arch-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        .arrow-down::after { content: "▼"; }
+        .arrow-right::after { content: "▶"; }
+        .arrow-bidi::after { content: "⇅"; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--surface-alt);
+            color: var(--text);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.6rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        tr:hover td { background: rgba(167,139,250,0.04); }
+
+        /* Code */
+        code {
+            background: var(--surface-alt);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85em;
+            color: var(--accent);
+        }
+
+        pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            margin: 1rem 0;
+            color: var(--text-muted);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-singleton { background: rgba(251,146,60,0.15); color: var(--orange); }
+        .badge-scoped    { background: rgba(96,165,250,0.15);  color: var(--blue); }
+        .badge-factory   { background: rgba(74,222,128,0.15);  color: var(--green); }
+
+        /* Cards */
+        .card-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+        }
+
+        .card h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card p { font-size: 0.88rem; }
+
+        /* Flow diagrams */
+        .flow {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.82rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            white-space: pre;
+            color: var(--text-muted);
+        }
+
+        .flow .hl-accent  { color: var(--accent); }
+        .flow .hl-green   { color: var(--green); }
+        .flow .hl-blue    { color: var(--blue); }
+        .flow .hl-orange  { color: var(--orange); }
+        .flow .hl-cyan    { color: var(--cyan); }
+        .flow .hl-yellow  { color: var(--yellow); }
+        .flow .hl-red     { color: var(--red); }
+        .flow .hl-muted   { color: var(--text-muted); }
+
+        /* Section dividers */
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 2.5rem 0;
+        }
+
+        /* Lists */
+        ul { padding-left: 1.5rem; margin: 0.5rem 0; }
+        li { color: var(--text-muted); margin-bottom: 0.3rem; }
+        li strong { color: var(--text); }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.6rem; }
+            .arch-row { flex-direction: column; align-items: center; }
+            .card-row { grid-template-columns: 1fr; }
+        }
+
+        @media print {
+            body { background: #fff; color: #1a1a1a; padding: 1rem; }
+            .diagram, .card, pre, .flow { border-color: #ccc; background: #f8f8f8; }
+            .arch-box { border-width: 1px; }
+            h1, h3, .arch-title, code { color: #4a3d8f; }
+            h2 .num { background: #4a3d8f; }
+            p, td, li, .arch-desc, .flow { color: #444; }
+            th { background: #eee; color: #1a1a1a; }
+            td { border-color: #ddd; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>PurpleHat Music Player</h1>
+    <p class="subtitle">System Design Document &mdash; .NET 10 / Blazor Server / AWS</p>
+
+    <!-- ================================================================== -->
+    <!-- 1. HIGH LEVEL ARCHITECTURE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">1</span> High-Level Architecture</h2>
+    <p>
+        The application is a <strong>Blazor Server</strong> web app running on an <strong>AWS EC2</strong> instance.
+        Audio files are bundled with the application and served directly by Kestrel &mdash; no CDN or S3 involved.
+        Two databases provide persistence: <strong>SQLite</strong> for relational user data and
+        <strong>DynamoDB</strong> for key-value session state. A scoped <strong>in-memory service</strong> preserves
+        playback position during same-tab navigation.
+    </p>
+
+    <div class="diagram">
+        <div class="arch-grid">
+
+            <!-- Row: Browser -->
+            <div class="arch-row">
+                <div class="arch-box browser" style="min-width: 500px;">
+                    <div class="arch-label">Client</div>
+                    <div class="arch-title">Browser</div>
+                    <div class="arch-desc">HTML5 Audio API &bull; JS Interop module &bull; CSS theme (localStorage)</div>
+                </div>
+            </div>
+
+            <div class="arrow arrow-bidi"></div>
+
+            <!-- Row: GitHub Actions + EC2 -->
+            <div class="arch-row">
+                <div class="arch-box github">
+                    <div class="arch-label">CI/CD</div>
+                    <div class="arch-title">GitHub Actions</div>
+                    <div class="arch-desc">Build &rarr; Test &rarr; Publish &rarr; rsync to EC2</div>
+                </div>
+
+                <div class="arrow arrow-right"></div>
+
+                <div class="arch-box ec2" style="min-width: 360px;">
+                    <div class="arch-label">AWS Compute</div>
+                    <div class="arch-title">EC2 Instance (Elastic IP)</div>
+                    <div class="arch-desc">systemd service "purplehat" &bull; Kestrel &bull; .NET 10 runtime</div>
+                </div>
+            </div>
+
+            <div class="arrow arrow-bidi"></div>
+
+            <!-- Row: Internal components on EC2 -->
+            <div class="arch-row">
+                <div class="arch-box blazor">
+                    <div class="arch-label">Application</div>
+                    <div class="arch-title">Blazor Server App</div>
+                    <div class="arch-desc">Interactive Server render mode &bull; SignalR circuit per tab</div>
+                </div>
+            </div>
+
+            <div class="arrow arrow-bidi"></div>
+
+            <!-- Row: Data stores -->
+            <div class="arch-row">
+                <div class="arch-box sqlite">
+                    <div class="arch-label">On-Disk (EC2)</div>
+                    <div class="arch-title">SQLite</div>
+                    <div class="arch-desc">purplehat.db &bull; EF Core &bull; Auto-migrations</div>
+                </div>
+
+                <div class="arch-box dynamo">
+                    <div class="arch-label">AWS Managed</div>
+                    <div class="arch-title">DynamoDB</div>
+                    <div class="arch-desc">PlaybackSessions table &bull; On-demand billing</div>
+                </div>
+
+                <div class="arch-box memory">
+                    <div class="arch-label">In-Process</div>
+                    <div class="arch-title">Scoped Memory</div>
+                    <div class="arch-desc">PlaybackStateService &bull; per Blazor circuit</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 2. AWS SERVICES -->
+    <!-- ================================================================== -->
+    <h2><span class="num">2</span> AWS Services</h2>
+    <p>The application uses a minimal AWS footprint &mdash; just two services:</p>
+
+    <div class="card-row">
+        <div class="card">
+            <h4 style="color: var(--orange);">EC2 &mdash; Compute</h4>
+            <p>
+                Single instance with an <strong>Elastic IP</strong> running the Blazor Server app as a
+                <code>systemd</code> service. The app binary, static assets, and audio files
+                are all deployed here via <code>rsync</code> over SSH from GitHub Actions.
+            </p>
+            <p>
+                SQLite database file (<code>purplehat.db</code>) lives on the instance's local disk.
+                Audio MP3 files are served directly from <code>wwwroot/audio/</code> by Kestrel &mdash;
+                no S3 or CloudFront needed.
+            </p>
+        </div>
+        <div class="card">
+            <h4 style="color: var(--blue);">DynamoDB &mdash; Session Store</h4>
+            <p>
+                Single table (<code>PlaybackSessions</code>) with <strong>on-demand billing</strong>
+                (PAY_PER_REQUEST). Stores per-user playback state so users can resume where they
+                left off across browser sessions.
+            </p>
+            <p>
+                <strong>Local dev:</strong> DynamoDB Local via Docker on <code>localhost:8000</code>.<br>
+                <strong>Production:</strong> AWS DynamoDB service, authenticated via the EC2 instance's
+                default credential chain (IAM role).
+            </p>
+        </div>
+    </div>
+
+    <h3>Services NOT used (and why)</h3>
+    <ul>
+        <li><strong>S3 / CloudFront</strong> &mdash; Audio files are small and bundled; no CDN needed for a demo.</li>
+        <li><strong>RDS</strong> &mdash; SQLite is sufficient for a single-instance app with seeded users.</li>
+        <li><strong>ALB / API Gateway</strong> &mdash; Single EC2 instance; no load balancing required.</li>
+        <li><strong>Cognito</strong> &mdash; Simple demo login with seeded users (no passwords / no auth).</li>
+    </ul>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 3. DATA PERSISTENCE - THREE LAYERS -->
+    <!-- ================================================================== -->
+    <h2><span class="num">3</span> Data Persistence &mdash; Three Layers</h2>
+    <p>
+        The application uses a <strong>three-tier persistence strategy</strong>, each layer optimised for
+        its data characteristics: relational user data in SQLite, key-value session state in DynamoDB,
+        and ephemeral playback state in scoped memory.
+    </p>
+
+    <div class="diagram">
+        <div class="arch-grid">
+            <div class="arch-row">
+                <div class="arch-box sqlite" style="flex: 1;">
+                    <div class="arch-label">Layer 1 &mdash; Relational</div>
+                    <div class="arch-title">SQLite (EF Core)</div>
+                    <div class="arch-desc">Users &bull; Favourites &bull; Health Checks</div>
+                    <div class="arch-desc" style="margin-top: 0.4rem; color: var(--green);">Survives: everything</div>
+                </div>
+                <div class="arch-box dynamo" style="flex: 1;">
+                    <div class="arch-label">Layer 2 &mdash; Key-Value</div>
+                    <div class="arch-title">DynamoDB</div>
+                    <div class="arch-desc">Playback sessions (track, position, volume)</div>
+                    <div class="arch-desc" style="margin-top: 0.4rem; color: var(--blue);">Survives: browser refresh, new tabs, return visits</div>
+                </div>
+                <div class="arch-box memory" style="flex: 1;">
+                    <div class="arch-label">Layer 3 &mdash; Ephemeral</div>
+                    <div class="arch-title">Scoped In-Memory</div>
+                    <div class="arch-desc">Current playback state within a circuit</div>
+                    <div class="arch-desc" style="margin-top: 0.4rem; color: var(--cyan);">Survives: page navigation (same tab only)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3a. SQLite -->
+    <h3>3a. SQLite &mdash; Relational User Data</h3>
+    <p>
+        File: <code>purplehat.db</code>, managed by <strong>EF Core</strong> with the
+        <code>Microsoft.EntityFrameworkCore.Sqlite</code> provider. Migrations run automatically
+        on startup via <code>db.Database.MigrateAsync()</code>.
+    </p>
+
+    <table>
+        <thead>
+            <tr><th>Table</th><th>Purpose</th><th>Key</th><th>Columns</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>Users</code></td>
+                <td>Seeded demo users</td>
+                <td><code>Id</code> (int, PK)</td>
+                <td>Id, Name</td>
+            </tr>
+            <tr>
+                <td><code>FavouriteTracks</code></td>
+                <td>User's favourited tracks</td>
+                <td>Composite: <code>UserId</code> + <code>AudioUrl</code></td>
+                <td>UserId, AudioUrl</td>
+            </tr>
+            <tr>
+                <td><code>HealthCheckEntries</code></td>
+                <td>Diagnostic read/write test</td>
+                <td><code>Id</code> (int, PK)</td>
+                <td>Id, CreatedAt, Message</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p><strong>Key design decision:</strong> Favourites are keyed by <code>AudioUrl</code> (filename)
+    rather than a runtime track ID. This means favourites remain stable if the track list order changes
+    or new files are added.</p>
+
+    <p><strong>Access pattern:</strong> Uses <code>IDbContextFactory&lt;ApplicationDbContext&gt;</code> to create
+    short-lived DbContext instances per operation &mdash; the recommended pattern for Blazor Server,
+    which has long-lived scoped services that outlive a typical HTTP request.</p>
+
+    <h4>Service: <code>TrackFavouriteService</code> <span class="badge badge-scoped">Scoped</span></h4>
+    <pre><code>// In-memory HashSet for instant lookups
+private readonly HashSet&lt;string&gt; _favourites = [];
+
+// Toggle: update HashSet immediately, then persist to SQLite if logged in
+public async Task ToggleAsync(string audioUrl)
+{
+    if (_favourites.Contains(audioUrl))
+    {
+        _favourites.Remove(audioUrl);
+        if (userSession.CurrentUser is not null)
+            await RemoveFromDbAsync(userSession.CurrentUser.Id, audioUrl);
+    }
+    else
+    {
+        _favourites.Add(audioUrl);
+        if (userSession.CurrentUser is not null)
+            await AddToDbAsync(userSession.CurrentUser.Id, audioUrl);
+    }
+    OnChange?.Invoke();
+}</code></pre>
+
+    <!-- 3b. DynamoDB -->
+    <h3>3b. DynamoDB &mdash; Playback Session Persistence</h3>
+    <p>
+        Single table with a simple schema. No sort keys, no GSIs &mdash; just one item per user.
+        Table is auto-created on first access via <code>EnsureTableExists()</code>.
+    </p>
+
+    <table>
+        <thead>
+            <tr><th>Attribute</th><th>Type</th><th>Role</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>UserId</code></td>
+                <td>String</td>
+                <td>Partition Key</td>
+                <td>Maps to the seeded user's integer ID</td>
+            </tr>
+            <tr>
+                <td><code>AudioUrl</code></td>
+                <td>String</td>
+                <td>Attribute</td>
+                <td>The track's file path (e.g. <code>audio/Artist - Title.mp3</code>)</td>
+            </tr>
+            <tr>
+                <td><code>Position</code></td>
+                <td>Number</td>
+                <td>Attribute</td>
+                <td>Playhead position in seconds (2 decimal places)</td>
+            </tr>
+            <tr>
+                <td><code>Volume</code></td>
+                <td>Number</td>
+                <td>Attribute</td>
+                <td>Volume level 0&ndash;100</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h4>Service: <code>PlaybackSessionService</code> <span class="badge badge-singleton">Singleton</span></h4>
+    <pre><code>// Save: PutItem overwrites the user's session record
+public async Task SaveAsync(int userId, string audioUrl, double position, int volume)
+{
+    await EnsureTableExists();
+    await dynamoDb.PutItemAsync(new PutItemRequest
+    {
+        TableName = "PlaybackSessions",
+        Item = new Dictionary&lt;string, AttributeValue&gt;
+        {
+            ["UserId"]   = new(userId.ToString()),
+            ["AudioUrl"] = new(audioUrl),
+            ["Position"] = new() { N = position.ToString("F2") },
+            ["Volume"]   = new() { N = volume.ToString() }
+        }
+    });
+}
+
+// Load: GetItem by UserId partition key
+public async Task&lt;PlaybackSession?&gt; LoadAsync(int userId)
+{
+    await EnsureTableExists();
+    var response = await dynamoDb.GetItemAsync(new GetItemRequest
+    {
+        TableName = "PlaybackSessions",
+        Key = new Dictionary&lt;string, AttributeValue&gt;
+        {
+            ["UserId"] = new(userId.ToString())
+        }
+    });
+    if (!response.IsItemSet) return null;
+    // ... map to PlaybackSession record
+}</code></pre>
+
+    <h4>Local vs Production Configuration</h4>
+    <pre><code>// Program.cs — DynamoDB client setup
+var dynamoDbServiceUrl = builder.Configuration["DynamoDb:ServiceUrl"];
+if (!string.IsNullOrEmpty(dynamoDbServiceUrl))
+{
+    // Development: Docker container running DynamoDB Local
+    // appsettings.Development.json → "DynamoDb": { "ServiceUrl": "http://localhost:8000" }
+    builder.Services.AddSingleton&lt;IAmazonDynamoDB&gt;(
+        new AmazonDynamoDBClient(new AmazonDynamoDBConfig { ServiceURL = dynamoDbServiceUrl }));
+}
+else
+{
+    // Production: AWS DynamoDB via default credential chain (EC2 IAM role)
+    builder.Services.AddSingleton&lt;IAmazonDynamoDB&gt;(new AmazonDynamoDBClient());
+}</code></pre>
+
+    <!-- 3c. In-Memory -->
+    <h3>3c. In-Memory &mdash; Playhead During Navigation</h3>
+    <p>
+        <code>PlaybackStateService</code> is registered as <strong>Scoped</strong>, meaning one instance
+        per Blazor Server circuit (essentially per browser tab). It holds the playback state in plain
+        C# properties &mdash; no serialisation, no I/O, instant save and restore.
+    </p>
+
+    <h4>Service: <code>PlaybackStateService</code> <span class="badge badge-scoped">Scoped</span></h4>
+    <pre><code>public class PlaybackStateService : IPlaybackStateService
+{
+    public string? AudioUrl { get; private set; }
+    public double Position { get; private set; }
+    public int Volume { get; private set; } = 60;
+    public bool WasPlaying { get; private set; }
+    public bool HasState =&gt; AudioUrl is not null;
+
+    public void Save(string audioUrl, double position, int volume, bool wasPlaying)
+    {
+        AudioUrl = audioUrl;
+        Position = position;
+        Volume = volume;
+        WasPlaying = wasPlaying;
+    }
+}</code></pre>
+
+    <p><strong>Why this exists:</strong> In Blazor Server, navigating between pages disposes the current
+    page component but keeps the circuit (and its scoped services) alive. Without this service, every
+    page navigation would lose track of what was playing. The in-memory layer provides zero-latency
+    restore &mdash; no round-trip to DynamoDB needed for simple navigation.</p>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 4. STATE LIFECYCLE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">4</span> State Lifecycle &mdash; How Playback Is Preserved</h2>
+    <p>
+        The three persistence layers work together in a <strong>tiered fallback</strong> pattern.
+        The fastest layer is tried first; slower layers are only hit when the faster one has no data.
+    </p>
+
+    <div class="flow"><span class="hl-yellow">User hits play</span>
+  │
+  └─▶ JS Audio API begins playing via <span class="hl-accent">audioPlayer.js</span>
+       Browser <span class="hl-cyan">Audio</span> object holds the actual playback state
+
+<span class="hl-yellow">User pauses</span>
+  │
+  └─▶ <span class="hl-accent">SaveStateAsync()</span> fires
+       │
+       ├─▶ <span class="hl-cyan">PlaybackStateService.Save()</span>        <span class="hl-muted">← in-memory, instant, always</span>
+       │
+       └─▶ <span class="hl-blue">PlaybackSessionService.SaveAsync()</span>  <span class="hl-muted">← DynamoDB, async, only if logged in</span>
+
+<span class="hl-yellow">User navigates away from /music</span>
+  │
+  └─▶ <span class="hl-accent">DisposeAsync()</span> fires
+       │
+       └─▶ <span class="hl-accent">SaveStateAsync()</span>  <span class="hl-muted">← saves to both layers before component dies</span>
+
+<span class="hl-yellow">User navigates back to /music (same tab)</span>
+  │
+  └─▶ <span class="hl-accent">OnAfterRenderAsync(firstRender: true)</span>
+       │
+       ├─ <span class="hl-cyan">PlaybackState.HasState?</span>
+       │   │
+       │   ├─ <span class="hl-green">YES</span> ──▶ <span class="hl-cyan">RestoreFromStateAsync()</span>
+       │   │          <span class="hl-muted">Fast path: in-memory, no I/O, instant</span>
+       │   │          <span class="hl-muted">Restores track, position, volume, and play/pause state</span>
+       │   │
+       │   └─ <span class="hl-red">NO</span>  ──▶ <span class="hl-blue">RestoreFromDynamoAsync()</span>
+       │              <span class="hl-muted">Slow path: reads from DynamoDB, only if logged in</span>
+       │              <span class="hl-muted">Loads track paused at saved position</span>
+
+<span class="hl-yellow">User refreshes the page / opens new tab</span>
+  │
+  └─▶ New Blazor circuit = new scoped services = <span class="hl-red">in-memory is empty</span>
+       │
+       └─▶ Falls through to <span class="hl-blue">DynamoDB</span> on next visit to /music (if logged in)
+
+<span class="hl-yellow">User logs in</span>
+  │
+  └─▶ <span class="hl-accent">OnUserChanged()</span> fires
+       │
+       ├─▶ <span class="hl-green">TrackFavourites.LoadForUserAsync()</span>  <span class="hl-muted">← loads favourites from SQLite</span>
+       └─▶ <span class="hl-blue">RestoreFromDynamoAsync()</span>              <span class="hl-muted">← loads playback state from DynamoDB</span></div>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 5. SERVICE ARCHITECTURE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">5</span> Service Architecture &amp; Lifetimes</h2>
+    <p>
+        All services are registered in <code>Program.cs</code>. The lifetime of each service is chosen
+        based on its data characteristics and thread-safety requirements.
+    </p>
+
+    <table>
+        <thead>
+            <tr><th>Service</th><th>Lifetime</th><th>Purpose</th><th>Why This Lifetime</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>ITrackService</code></td>
+                <td><span class="badge badge-singleton">Singleton</span></td>
+                <td>Loads MP3 files from disk, parses filenames</td>
+                <td>Track list is static; loaded once at startup</td>
+            </tr>
+            <tr>
+                <td><code>IAmazonDynamoDB</code></td>
+                <td><span class="badge badge-singleton">Singleton</span></td>
+                <td>AWS DynamoDB client</td>
+                <td>Thread-safe, connection pooling built-in</td>
+            </tr>
+            <tr>
+                <td><code>IPlaybackSessionService</code></td>
+                <td><span class="badge badge-singleton">Singleton</span></td>
+                <td>DynamoDB read/write operations</td>
+                <td>Stateless &mdash; all state lives in DynamoDB</td>
+            </tr>
+            <tr>
+                <td><code>IUserSessionService</code></td>
+                <td><span class="badge badge-scoped">Scoped</span></td>
+                <td>Tracks which user is "logged in"</td>
+                <td>Per-circuit; each tab has its own user</td>
+            </tr>
+            <tr>
+                <td><code>ITrackFavouriteService</code></td>
+                <td><span class="badge badge-scoped">Scoped</span></td>
+                <td>In-memory favourites + SQLite sync</td>
+                <td>Per-circuit; each tab has its own favourites set</td>
+            </tr>
+            <tr>
+                <td><code>IPlaybackStateService</code></td>
+                <td><span class="badge badge-scoped">Scoped</span></td>
+                <td>In-memory playhead state</td>
+                <td>Per-circuit; navigation state for this tab only</td>
+            </tr>
+            <tr>
+                <td><code>ApplicationDbContext</code></td>
+                <td><span class="badge badge-factory">Factory</span></td>
+                <td>EF Core context for SQLite</td>
+                <td>Short-lived instances avoid long DbContext lifetimes in Blazor</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 6. CI/CD PIPELINE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">6</span> CI/CD Pipeline</h2>
+
+    <div class="flow"><span class="hl-accent">CI Pipeline</span> (on push + PR to main/master)
+  │
+  ├─ Checkout
+  ├─ Setup .NET 10
+  ├─ <span class="hl-green">dotnet restore</span>
+  ├─ <span class="hl-green">dotnet build --configuration Release</span>
+  └─ <span class="hl-green">dotnet test</span>
+
+<span class="hl-accent">CD Pipeline</span> (on push to main/master only)
+  │
+  ├─ Checkout
+  ├─ Setup .NET 10
+  ├─ <span class="hl-green">dotnet publish -c Release -o publish</span>
+  ├─ Setup SSH key from <span class="hl-orange">secrets.EC2_SSH_KEY</span>
+  ├─ <span class="hl-blue">rsync -avz --delete</span> publish/ → EC2:/home/ec2-user/app/
+  └─ <span class="hl-blue">ssh</span> → <span class="hl-cyan">sudo systemctl restart purplehat</span></div>
+
+    <p>
+        The deployment is a simple <strong>binary copy</strong> &mdash; no container registry, no blue/green,
+        no rolling deploy. The <code>--delete</code> flag on rsync ensures old files are cleaned up.
+        The systemd service restarts with the new binary automatically.
+    </p>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 7. AUDIO PLAYBACK ARCHITECTURE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">7</span> Audio Playback Architecture</h2>
+    <p>
+        Audio playback runs entirely in the browser via the <strong>HTML5 Audio API</strong>.
+        The Blazor Server component communicates with a JavaScript module (<code>audioPlayer.js</code>)
+        through <strong>JS Interop</strong>.
+    </p>
+
+    <div class="flow"><span class="hl-accent">Blazor Server (C#)</span>                    <span class="hl-yellow">Browser (JS)</span>
+  │                                        │
+  │  <span class="hl-green">play(url, volume)</span>  ──────────────▶  │  audio.src = url
+  │                                        │  audio.volume = vol/100
+  │  <span class="hl-green">pause()</span>  ──────────────────────▶  │  audio.pause()
+  │  <span class="hl-green">resume()</span> ──────────────────────▶  │  audio.play()
+  │  <span class="hl-green">setVolume(vol)</span> ────────────────▶  │  audio.volume = vol/100
+  │  <span class="hl-green">setCurrentTime(t)</span> ─────────────▶  │  audio.currentTime = t
+  │  <span class="hl-green">getCurrentTime()</span> ◀────────────── │  return audio.currentTime
+  │                                        │
+  │  <span class="hl-orange">OnTrackEnded()</span>  ◀───────────────  │  audio 'ended' event
+  │  (auto-advances to next track)         │</div>
+
+    <p>
+        <strong>Why JS Interop?</strong> Blazor Server runs on the server with a SignalR connection
+        to the browser. The HTML5 <code>Audio</code> object must live in the browser &mdash; it can't
+        be created or controlled from server-side C#. The JS module wraps the Audio API and exposes
+        it as callable functions over interop.
+    </p>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 8. COMPONENT ARCHITECTURE -->
+    <!-- ================================================================== -->
+    <h2><span class="num">8</span> Component &amp; Page Structure</h2>
+
+    <div class="flow"><span class="hl-accent">App.razor</span>
+  └─ <span class="hl-accent">Routes.razor</span>
+       └─ <span class="hl-accent">MainLayout.razor</span>
+            ├─ <span class="hl-cyan">NavMenu.razor</span>
+            │    ├─ Navigation links (Home, Music Player)
+            │    ├─ User login dropdown (seeded users)
+            │    └─ Theme toggle (dark/light, localStorage)
+            │
+            └─ <span class="hl-yellow">@Body</span> (routed pages)
+                 │
+                 ├─ <span class="hl-green">/</span>           → <span class="hl-accent">Home.razor</span>           <span class="hl-muted">(static, project overview)</span>
+                 ├─ <span class="hl-green">/music</span>      → <span class="hl-accent">MusicPlayer.razor</span>    <span class="hl-muted">(Interactive Server)</span>
+                 ├─ <span class="hl-green">/db-health</span>  → <span class="hl-accent">DbHealth.razor</span>       <span class="hl-muted">(SQLite connectivity test)</span>
+                 ├─ <span class="hl-green">/dynamodb-health</span> → <span class="hl-accent">DynamoDbHealth.razor</span> <span class="hl-muted">(DynamoDB connectivity test)</span>
+                 └─ <span class="hl-green">/*</span>          → <span class="hl-accent">NotFound.razor</span>       <span class="hl-muted">(404 page)</span></div>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 9. DATA MODELS -->
+    <!-- ================================================================== -->
+    <h2><span class="num">9</span> Data Models</h2>
+
+    <div class="card-row">
+        <div class="card">
+            <h4 style="color: var(--accent);">Track <code style="font-size: 0.75rem;">record</code></h4>
+            <pre><code>record Track(
+    int Id,
+    string Title,
+    string Artist,
+    string AudioUrl,
+    string? ArtworkUrl
+);</code></pre>
+            <p>Runtime only &mdash; built by scanning <code>wwwroot/audio/*.mp3</code> filenames
+            at startup. Not persisted to any database.</p>
+        </div>
+        <div class="card">
+            <h4 style="color: var(--green);">User <code style="font-size: 0.75rem;">class (SQLite)</code></h4>
+            <pre><code>class User
+{
+    int Id { get; set; }
+    string Name { get; set; }
+}</code></pre>
+            <p>Seeded with 3 users: Mike (1), Jordan (2), Jason (3).
+            No passwords &mdash; demo-only login.</p>
+        </div>
+    </div>
+    <div class="card-row">
+        <div class="card">
+            <h4 style="color: var(--green);">FavouriteTrack <code style="font-size: 0.75rem;">class (SQLite)</code></h4>
+            <pre><code>class FavouriteTrack
+{
+    int UserId { get; set; }
+    string AudioUrl { get; set; }
+}
+// Composite PK: (UserId, AudioUrl)</code></pre>
+            <p>Links a user to a track via filename. Composite key prevents duplicates.</p>
+        </div>
+        <div class="card">
+            <h4 style="color: var(--blue);">PlaybackSession <code style="font-size: 0.75rem;">record (DynamoDB)</code></h4>
+            <pre><code>record PlaybackSession(
+    string AudioUrl,
+    double Position,
+    int Volume
+);</code></pre>
+            <p>C# representation of a DynamoDB item. Keyed by <code>UserId</code> in the table,
+            but the record itself only holds the value attributes.</p>
+        </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ================================================================== -->
+    <!-- 10. TECH STACK SUMMARY -->
+    <!-- ================================================================== -->
+    <h2><span class="num">10</span> Technology Stack</h2>
+
+    <table>
+        <thead>
+            <tr><th>Layer</th><th>Technology</th><th>Version / Detail</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Runtime</td><td>.NET</td><td>10</td></tr>
+            <tr><td>Framework</td><td>Blazor Server</td><td>Interactive Server render mode</td></tr>
+            <tr><td>Language</td><td>C#</td><td>Latest (with primary constructors, records)</td></tr>
+            <tr><td>ORM</td><td>Entity Framework Core</td><td>10.0.5 (Sqlite provider)</td></tr>
+            <tr><td>Relational DB</td><td>SQLite</td><td>File-based, auto-migrated</td></tr>
+            <tr><td>NoSQL DB</td><td>AWS DynamoDB</td><td>AWSSDK.DynamoDBv2 4.0.17.5</td></tr>
+            <tr><td>Local NoSQL</td><td>DynamoDB Local</td><td>Docker container on port 8000</td></tr>
+            <tr><td>Compute</td><td>AWS EC2</td><td>Elastic IP, systemd service</td></tr>
+            <tr><td>CI/CD</td><td>GitHub Actions</td><td>2 workflows (CI + CD)</td></tr>
+            <tr><td>Testing</td><td>xUnit + FakeItEasy + Shouldly + bUnit</td><td>Unit + component tests</td></tr>
+            <tr><td>Audio</td><td>HTML5 Audio API</td><td>Via JS Interop module</td></tr>
+            <tr><td>Theming</td><td>CSS custom properties</td><td>Dark/light mode via localStorage</td></tr>
+        </tbody>
+    </table>
+
+    <br><br>
+    <p style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+        PurpleHat Music Player &mdash; System Design Document &mdash; Generated April 2026
+    </p>
+
+</div>
+</body>
+</html>
